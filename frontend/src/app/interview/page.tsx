@@ -350,7 +350,6 @@ export default function InterviewPage() {
   const [code, setCode] = useState(DEFAULT_CODE.python);
   const [language, setLanguage] = useState('python');
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
-  const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -365,7 +364,6 @@ export default function InterviewPage() {
   const [codeInputs, setCodeInputs] = useState<string[]>([]);
   const [inputValues, setInputValues] = useState<string[]>([]);
   const [editorInstance, setEditorInstance] = useState<any>(null);
-  const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [showResults, setShowResults] = useState(false);
 
   useEffect(() => {
@@ -426,10 +424,8 @@ export default function InterviewPage() {
     }
   };
 
-  const handleSendMessage = async (message?: string) => {
-    // If message is provided (from voice chat), use it, otherwise use the chatMessage state
-    const messageToSend = message || chatMessage;
-    if (!messageToSend.trim()) return;
+  const handleSendMessage = async (message: string) => {
+    if (!message.trim()) return;
 
     // Check if this is a response to the completion message
     const lastMessage = chatHistory[chatHistory.length - 1]?.content;
@@ -445,13 +441,8 @@ export default function InterviewPage() {
       setError(null);
       
       // Add user message to chat
-      const userMessage = messageToSend.trim();
+      const userMessage = message.trim();
       setChatHistory(prev => [...prev, { type: 'user', content: userMessage }]);
-      
-      // Only clear the input field if we're in text mode
-      if (!message) {
-        setChatMessage('');
-      }
 
       // Get interviewer's response
       const response = await api.sendMessage(userMessage);
@@ -701,21 +692,49 @@ export default function InterviewPage() {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg p-8 max-w-md w-full">
-          <h2 className="text-2xl font-bold mb-4">Welcome to the Technical Interview</h2>
-          <p className="text-gray-600 mb-6">Please enter the job role you're applying for to begin the interview.</p>
-          <form onSubmit={handleJobRoleSubmit} className="space-y-4">
-            <input
-              type="text"
-              value={jobRole}
-              onChange={(e) => setJobRole(e.target.value)}
-              placeholder="e.g., Software Engineer, AI Engineer, Frontend Developer"
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              required
-            />
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-bold mb-2">Start Your Mock Interview</h2>
+            <p className="text-gray-600">Tell us about the role you're preparing for</p>
+          </div>
+          
+          <form onSubmit={handleJobRoleSubmit} className="space-y-6">
+            <div>
+              <label htmlFor="jobRole" className="block text-sm font-medium text-gray-700 mb-2">
+                Job Role
+              </label>
+              <input
+                id="jobRole"
+                type="text"
+                value={jobRole}
+                onChange={(e) => setJobRole(e.target.value)}
+                placeholder="e.g., Software Engineer, Frontend Developer, Data Scientist"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                required
+              />
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded-md">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">What to expect:</h3>
+              <ul className="text-sm text-gray-600 space-y-2">
+                <li className="flex items-start">
+                  <span className="mr-2">🎯</span>
+                  <span>Technical questions based on your role</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="mr-2">💬</span>
+                  <span>Voice-based interaction with AI interviewer</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="mr-2">💻</span>
+                  <span>Live coding challenges with real-time feedback</span>
+                </li>
+              </ul>
+            </div>
+
             <button
               type="submit"
-              className="w-full bg-indigo-600 text-white py-3 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
               disabled={!jobRole.trim()}
+              className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Start Interview
             </button>
@@ -870,82 +889,22 @@ export default function InterviewPage() {
             </div>
           </div>
 
-          {/* Right Panel - Chat or Voice Chat */}
+          {/* Right Panel - Voice Chat */}
           <div className="bg-white p-6 rounded-lg shadow h-[calc(100vh-8rem)]">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold">Interview Chat</h2>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setIsVoiceMode(!isVoiceMode)}
-                  className={`px-3 py-1 rounded-md text-sm ${
-                    isVoiceMode
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-gray-200 text-gray-700'
-                  }`}
-                >
-                  {isVoiceMode ? 'Voice Mode' : 'Text Mode'}
-                </button>
-              </div>
             </div>
             
-            {isVoiceMode ? (
-              <VoiceChat
-                onMessageReceived={handleVoiceMessageReceived}
-                onError={setError}
-                isInterviewActive={interviewState.stage !== 'complete'}
-                initialMessage={chatHistory.length > 0 ? chatHistory[chatHistory.length - 1].content : undefined}
-                onComplete={() => {
-                  setInterviewState(prev => ({ ...prev, stage: 'complete' }));
-                  setShowResults(true);
-                }}
-              />
-            ) : (
-              <div className="h-full flex flex-col">
-                <div className="flex-1 overflow-y-auto mb-4 space-y-4">
-                  {chatHistory.map((chat, index) => (
-                    <div
-                      key={index}
-                      className={`p-4 rounded-lg ${
-                        chat.type === 'interviewer'
-                          ? 'bg-gray-50'
-                          : chat.type === 'system'
-                          ? 'bg-blue-50'
-                          : 'bg-indigo-50 ml-4'
-                      }`}
-                    >
-                      <p className="text-xs text-gray-500 mb-1">
-                        {chat.type === 'interviewer' ? 'Interviewer' : 
-                         chat.type === 'system' ? 'System' : 'You'}
-                      </p>
-                      <div className="prose max-w-none">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {chat.content}
-                        </ReactMarkdown>
-                      </div>
-                    </div>
-                  ))}
-                  <div ref={chatEndRef} />
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={chatMessage}
-                    onChange={(e) => setChatMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && !isThinking && handleSendMessage()}
-                    disabled={isThinking}
-                    className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-50"
-                    placeholder={isThinking ? 'Please wait...' : 'Type your message...'}
-                  />
-                  <button
-                    onClick={() => handleSendMessage()}
-                    disabled={!chatMessage.trim() || isThinking}
-                    className="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
-                  >
-                    {isThinking ? 'Thinking...' : 'Next'}
-                  </button>
-                </div>
-              </div>
-            )}
+            <VoiceChat
+              onMessageReceived={handleVoiceMessageReceived}
+              onError={setError}
+              isInterviewActive={interviewState.stage !== 'complete'}
+              initialMessage={chatHistory.length > 0 ? chatHistory[chatHistory.length - 1].content : undefined}
+              onComplete={() => {
+                setInterviewState(prev => ({ ...prev, stage: 'complete' }));
+                setShowResults(true);
+              }}
+            />
           </div>
         </div>
       </div>
